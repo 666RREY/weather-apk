@@ -386,8 +386,8 @@
     </div>
   </div>
 
-  <!-- API Key -->
-  <div id="apiPanel">
+  <!-- API Key panel hidden (key is built-in) -->
+  <div id="apiPanel" class="hidden">
     <span class="lbl">🔑 API</span>
     <input type="text" id="apiKeyIn" placeholder="Введите ключ OpenWeatherMap..."/>
     <button id="saveKeyBtn">Готово</button>
@@ -418,7 +418,7 @@
 
 <script>
 /* ── State ─────────────────────────────── */
-let API_KEY = localStorage.getItem('owm_key') || '';
+let API_KEY = '8ff5e017e6d749d077cefe95e19ff5ba';
 let lastCity = localStorage.getItem('last_city') || '';
 
 /* ── Stars ─────────────────────────────── */
