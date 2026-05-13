@@ -227,7 +227,7 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 11px;
-      padding: 0 13px 24px;
+      padding: 11px 13px 24px;
     }
     .card {
       background: var(--glass);
@@ -355,6 +355,98 @@
       transition: filter .4s;
     }
 
+    /* ─── HOURLY FORECAST ────────────── */
+    #hourlyWrap {
+      padding: 0 13px 0;
+      opacity: 0;
+      animation: slideUp .45s ease .08s forwards;
+    }
+    .hourly-card {
+      background: var(--glass);
+      border: 1.5px solid var(--border);
+      border-radius: 22px;
+      padding: 14px 6px 14px 14px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      position: relative; overflow: hidden;
+    }
+    .hourly-card::after {
+      content:''; position:absolute; top:0; left:10%; right:10%; height:1px;
+      background: linear-gradient(90deg, transparent, rgba(168,85,247,0.5), transparent);
+    }
+    .hourly-scroll {
+      display: flex; gap: 6px;
+      overflow-x: auto; overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      padding-right: 8px; scrollbar-width: none;
+    }
+    .hourly-scroll::-webkit-scrollbar { display:none; }
+    .h-item {
+      flex-shrink: 0; scroll-snap-align: start;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 5px;
+      padding: 8px 10px; border-radius: 14px;
+      transition: background .2s; min-width: 54px;
+    }
+    .h-item.now {
+      background: rgba(147,51,234,0.28);
+      border: 1px solid rgba(168,85,247,0.45);
+    }
+    .h-time { font-size: 11px; font-weight: 700; color: var(--txt3); }
+    .h-item.now .h-time { color: var(--accent3); }
+    .h-ico  { font-size: 22px; line-height:1; }
+    .h-temp { font-size: 15px; font-weight: 800; }
+    .h-pop  { font-size: 10px; color: #60a5fa; font-weight: 700; }
+
+    /* ─── 5-DAY FORECAST ─────────────── */
+    #forecastWrap {
+      padding: 11px 13px 0;
+      opacity: 0;
+      animation: slideUp .45s ease .14s forwards;
+    }
+    .forecast-card {
+      background: var(--glass);
+      border: 1.5px solid var(--border);
+      border-radius: 22px;
+      padding: 6px 16px 10px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      position: relative; overflow: hidden;
+    }
+    .forecast-card::after {
+      content:''; position:absolute; top:0; left:10%; right:10%; height:1px;
+      background: linear-gradient(90deg, transparent, rgba(168,85,247,0.5), transparent);
+    }
+    .fc-header {
+      font-size: 10.5px; font-weight: 800; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--txt3);
+      padding: 10px 0 8px;
+      display: flex; align-items: center; gap: 5px;
+      border-bottom: 1px solid rgba(168,85,247,0.12);
+      margin-bottom: 4px;
+    }
+    .fc-row {
+      display: flex; align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      gap: 10px;
+    }
+    .fc-row:last-child { border-bottom: none; }
+    .fc-day  { font-size: 15px; font-weight: 700; width: 42px; flex-shrink:0; }
+    .fc-ico  { font-size: 22px; width: 28px; text-align:center; flex-shrink:0; }
+    .fc-desc { font-size: 11px; color: var(--txt2); flex:1; font-weight:600;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .fc-range { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+    .fc-min  { font-size: 14px; font-weight: 600; color: var(--txt3); width:30px; text-align:right; }
+    .fc-bar-wrap { width: 52px; height: 5px; border-radius:3px;
+      background: rgba(255,255,255,0.1); overflow:hidden; position:relative; }
+    .fc-bar-fill {
+      position:absolute; top:0; height:100%; border-radius:3px;
+      background: linear-gradient(90deg, #60a5fa, var(--accent3));
+    }
+    .fc-max  { font-size: 14px; font-weight: 800; width:30px; }
+
     /* ─── FOOTER ─────────────────────── */
     #footer {
       text-align:center; padding: 16px 20px 0;
@@ -410,6 +502,8 @@
       <p id="errorMsg"></p>
     </div>
     <div id="weatherMain" class="hidden"></div>
+    <div id="hourlyWrap" class="hidden"></div>
+    <div id="forecastWrap" class="hidden"></div>
     <div id="cards" class="hidden"></div>
     <div id="footer" class="hidden">Данные: OpenWeatherMap</div>
   </div>
@@ -526,7 +620,7 @@ function showOnly(ids, allIds){
   allIds.forEach(id => document.getElementById(id).classList.add('hidden'));
   ids.forEach(id => document.getElementById(id).classList.remove('hidden'));
 }
-const ALL = ['welcome','loading','error','weatherMain','cards','footer'];
+const ALL = ['welcome','loading','error','weatherMain','hourlyWrap','forecastWrap','cards','footer'];
 
 /* ── Main search ───────────────────────── */
 async function doSearch(){
@@ -540,13 +634,15 @@ async function doSearch(){
   showOnly(['loading'], ALL);
 
   try {
-    const res = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric&lang=ru`
-    );
+    const [res, fRes] = await Promise.all([
+      fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric&lang=ru`),
+      fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric&lang=ru&cnt=40`)
+    ]);
     if(res.status===401) throw new Error('Неверный API ключ. Проверьте и обновите его.');
     if(res.status===404) throw new Error(`Город «${city}» не найден. Попробуйте другое название.`);
     if(!res.ok) throw new Error(`Ошибка сервера: ${res.status}`);
     const d = await res.json();
+    const fData = fRes.ok ? await fRes.json() : null;
 
     /* UV index */
     let uvi = 0;
@@ -556,7 +652,7 @@ async function doSearch(){
     } catch(e){}
 
     localStorage.setItem('last_city', city);
-    render(d, uvi);
+    render(d, uvi, fData);
   } catch(err) {
     document.getElementById('errorMsg').textContent = err.message || 'Не удалось загрузить данные.';
     showOnly(['error'], ALL);
@@ -564,7 +660,7 @@ async function doSearch(){
 }
 
 /* ── Render ────────────────────────────── */
-function render(d, uvi){
+function render(d, uvi, fData){
   const temp      = Math.round(d.main.temp);
   const feels     = Math.round(d.main.feels_like);
   const hum       = d.main.humidity;
@@ -697,7 +793,99 @@ function render(d, uvi){
     if(arr) arr.style.transform=`rotate(${windDeg}deg)`;
   }, 50);
 
-  showOnly(['weatherMain','cards','footer'], ALL);
+  /* ── Hourly + 5-day forecast ── */
+  if(fData && fData.list){
+    renderHourly(fData.list, tz);
+    renderForecast(fData.list, tz);
+    showOnly(['weatherMain','hourlyWrap','forecastWrap','cards','footer'], ALL);
+  } else {
+    showOnly(['weatherMain','cards','footer'], ALL);
+  }
+}
+
+/* ── Hourly (next 24h) ─────────────────── */
+function renderHourly(list, tz){
+  const items = list.slice(0, 8); // 8 × 3h = 24h
+  const nowTs = Math.floor(Date.now()/1000);
+  const html = items.map((item, i) => {
+    const localH = new Date((item.dt + tz)*1000).toISOString().slice(11,16);
+    const emoji  = wEmoji(item.weather[0].icon, item.weather[0].description);
+    const temp   = Math.round(item.main.temp);
+    const pop    = item.pop ? Math.round(item.pop*100) : 0;
+    const isNow  = i===0;
+    return `
+      <div class="h-item${isNow?' now':''}">
+        <div class="h-time">${isNow?'Сейчас':localH}</div>
+        <div class="h-ico">${emoji}</div>
+        <div class="h-temp">${temp}°</div>
+        ${pop>=20?`<div class="h-pop">💧${pop}%</div>`:'<div class="h-pop" style="opacity:0">0%</div>'}
+      </div>`;
+  }).join('');
+
+  document.getElementById('hourlyWrap').innerHTML = `
+    <div class="hourly-card">
+      <div class="clbl" style="margin-bottom:10px;"><span class="clbl-ico">🕐</span>Почасовой прогноз</div>
+      <div class="hourly-scroll">${html}</div>
+    </div>`;
+}
+
+/* ── 5-day daily forecast ──────────────── */
+function renderForecast(list, tz){
+  const DAYS = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+  const byDay = {};
+
+  list.forEach(item => {
+    const date = new Date((item.dt + tz)*1000).toISOString().slice(0,10);
+    if(!byDay[date]) byDay[date] = [];
+    byDay[date].push(item);
+  });
+
+  const todayKey = new Date((Math.floor(Date.now()/1000) + tz)*1000).toISOString().slice(0,10);
+  const days = Object.keys(byDay).filter(k => k >= todayKey).slice(0, 5);
+
+  /* Global min/max for bar scaling */
+  let gMin=999, gMax=-999;
+  days.forEach(k => {
+    byDay[k].forEach(i => {
+      gMin = Math.min(gMin, i.main.temp_min);
+      gMax = Math.max(gMax, i.main.temp_max);
+    });
+  });
+  const range = Math.max(gMax - gMin, 1);
+
+  const rows = days.map((dateKey, idx) => {
+    const pts   = byDay[dateKey];
+    const tMin  = Math.round(Math.min(...pts.map(p=>p.main.temp_min)));
+    const tMax  = Math.round(Math.max(...pts.map(p=>p.main.temp_max)));
+    const mid   = pts[Math.floor(pts.length/2)];
+    const emoji = wEmoji(mid.weather[0].icon, mid.weather[0].description);
+    const desc  = mid.weather[0].description;
+    const dow   = DAYS[new Date(dateKey+'T12:00:00Z').getDay()];
+    const label = idx===0 ? 'Сегодня' : idx===1 ? 'Завтра' : dow;
+
+    const barLeft  = ((tMin - gMin) / range) * 100;
+    const barWidth = ((tMax - tMin) / range) * 100;
+
+    return `
+      <div class="fc-row">
+        <div class="fc-day">${label}</div>
+        <div class="fc-ico">${emoji}</div>
+        <div class="fc-desc">${desc}</div>
+        <div class="fc-range">
+          <div class="fc-min">${tMin}°</div>
+          <div class="fc-bar-wrap">
+            <div class="fc-bar-fill" style="left:${barLeft}%;width:${Math.max(barWidth,10)}%"></div>
+          </div>
+          <div class="fc-max">${tMax}°</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('forecastWrap').innerHTML = `
+    <div class="forecast-card">
+      <div class="fc-header"><span>📅</span>Прогноз на 5 дней</div>
+      ${rows}
+    </div>`;
 }
 
 /* ── Load last city ─────────────────────── */
