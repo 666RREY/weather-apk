@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#07030f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Погода">
+  <title>Погода</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      margin: 0; padding: 0; box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+    }
+    :root {
+      --bg0: #07030f;
+      --bg1: #0f0820;
+      --bg2: #180d35;
+      --accent: #9333ea;
+      --accent2: #a855f7;
+      --accent3: #c084fc;
+      --accent4: #e9d5ff;
+      --pink: #ec4899;
+      --glass: rgba(255,255,255,0.055);
+      --glass2: rgba(255,255,255,0.09);
+      --border: rgba(168,85,247,0.22);
+      --border2: rgba(168,85,247,0.4);
+      --txt1: #ffffff;
+      --txt2: rgba(255,255,255,0.62);
+      --txt3: rgba(255,255,255,0.36);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bot: env(safe-area-inset-bottom, 0px);
+    }
+    html, body {
+      height: 100%; height: 100dvh;
+      background: var(--bg0);
+      color: var(--txt1);
+      font-family: 'Nunito', sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── BACKGROUND ─────────────────── */
+    #bg {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 80% 60% at 10% 5%, rgba(100,30,180,0.45) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 80% at 90% 95%, rgba(55,10,110,0.5) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 40% at 55% 40%, rgba(30,10,60,0.6) 0%, transparent 100%),
+        linear-gradient(170deg, #07030f 0%, #0f0820 45%, #07030f 100%);
+    }
+    #nebula {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 30% 25% at 80% 20%, rgba(168,85,247,0.12) 0%, transparent 100%),
+        radial-gradient(ellipse 20% 30% at 20% 70%, rgba(100,20,200,0.1) 0%, transparent 100%);
+      animation: nebulaDrift 20s ease-in-out infinite alternate;
+    }
+    @keyframes nebulaDrift {
+      from { transform: scale(1) translate(0,0); opacity: 0.7; }
+      to   { transform: scale(1.08) translate(12px, -8px); opacity: 1; }
+    }
+    #stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    .star {
+      position: absolute; background: #fff; border-radius: 50%;
+      animation: twinkle var(--d,3s) ease-in-out infinite;
+      animation-delay: var(--dl,0s); opacity: 0;
+    }
+    @keyframes twinkle {
+      0%,100% { opacity:0; }
+      50%      { opacity: var(--op,0.5); }
+    }
+
+    /* ─── LAYOUT ─────────────────────── */
+    #app {
+      position: relative; z-index: 1;
+      min-height: 100dvh;
+      padding-top: calc(var(--safe-top) + 0px);
+      padding-bottom: calc(var(--safe-bot) + 24px);
+      display: flex; flex-direction: column;
+    }
+
+    /* ─── SEARCH BAR ─────────────────── */
+    #searchWrap {
+      padding: 14px 16px 8px;
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(7,3,15,0.72);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid rgba(168,85,247,0.1);
+    }
+    #searchRow {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--glass2);
+      border: 1.5px solid var(--border);
+      border-radius: 18px;
+      padding: 11px 14px;
+      transition: border-color .25s, box-shadow .25s, background .25s;
+    }
+    #searchRow:focus-within {
+      border-color: var(--accent2);
+      background: rgba(147,51,234,0.12);
+      box-shadow: 0 0 0 3px rgba(147,51,234,0.18);
+    }
+    #searchRow svg { flex-shrink: 0; opacity: 0.45; }
+    #cityInput {
+      flex: 1; background: none; border: none; outline: none;
+      color: #fff; font-family: 'Nunito',sans-serif;
+      font-size: 16px; font-weight: 500;
+    }
+    #cityInput::placeholder { color: var(--txt3); }
+    #searchBtn {
+      background: var(--accent);
+      border: none; border-radius: 12px;
+      padding: 7px 16px;
+      color: #fff; font-family: 'Nunito',sans-serif;
+      font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: background .2s, transform .15s;
+      white-space: nowrap;
+    }
+    #searchBtn:active { background: var(--accent2); transform: scale(0.94); }
+
+    /* ─── API KEY PANEL ──────────────── */
+    #apiPanel {
+      margin: 10px 16px 0;
+      background: rgba(147,51,234,0.1);
+      border: 1.5px solid rgba(147,51,234,0.35);
+      border-radius: 16px; padding: 12px 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    #apiPanel.hidden { display: none; }
+    #apiPanel .lbl { font-size: 12px; color: var(--accent3); font-weight: 700; white-space: nowrap; }
+    #apiKeyIn {
+      flex: 1; background: none; border: none; outline: none;
+      color: #fff; font-family: 'Nunito',sans-serif; font-size: 13px;
+      min-width: 0;
+    }
+    #apiKeyIn::placeholder { color: var(--txt3); font-size: 12px; }
+    #saveKeyBtn {
+      background: rgba(147,51,234,0.35);
+      border: 1.5px solid var(--accent2);
+      border-radius: 10px; padding: 5px 12px;
+      color: var(--accent3); font-family: 'Nunito',sans-serif;
+      font-size: 12px; font-weight: 800; cursor: pointer;
+      white-space: nowrap; transition: background .2s;
+    }
+    #saveKeyBtn:active { background: rgba(147,51,234,0.6); }
+
+    /* ─── CONTENT AREA ───────────────── */
+    #content { flex: 1; }
+
+    /* ─── WELCOME SCREEN ─────────────── */
+    #welcome {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 60px 32px; text-align: center; gap: 14px;
+    }
+    #welcome .ico { font-size: 88px; animation: float 3.5s ease-in-out infinite; }
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-14px); }
+    }
+    #welcome h2 { font-size: 26px; font-weight: 800; }
+    #welcome p  { font-size: 15px; color: var(--txt2); line-height: 1.65; }
+
+    /* ─── LOADING ────────────────────── */
+    #loading {
+      display: flex; flex-direction: column;
+      align-items: center; padding: 80px 20px; gap: 18px;
+    }
+    .spin {
+      width: 44px; height: 44px;
+      border: 3px solid rgba(147,51,234,0.18);
+      border-top-color: var(--accent2);
+      border-radius: 50%;
+      animation: spin .85s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── ERROR ──────────────────────── */
+    #error {
+      text-align: center; padding: 60px 24px;
+    }
+    #error .eico { font-size: 56px; margin-bottom: 14px; }
+    #error h3 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    #error p  { font-size: 14px; color: var(--txt2); }
+
+    /* ─── WEATHER MAIN ───────────────── */
+    #weatherMain {
+      padding: 18px 20px 4px;
+      text-align: center;
+    }
+    .city-nm {
+      font-size: 32px; font-weight: 800;
+      letter-spacing: -0.5px; line-height: 1.1;
+    }
+    .city-cc {
+      font-size: 14px; color: var(--txt2); font-weight: 500;
+      margin: 2px 0 6px;
+    }
+    .wico { font-size: 78px; line-height: 1; margin: 4px 0;
+      filter: drop-shadow(0 0 22px rgba(168,85,247,0.55)); }
+    .big-temp {
+      font-size: 100px; font-weight: 200;
+      line-height: 1; letter-spacing: -5px;
+      background: linear-gradient(165deg, #fff 20%, rgba(196,130,252,0.75) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin: 4px 0 6px;
+    }
+    .w-desc { font-size: 19px; font-weight: 500; color: var(--txt2);
+      text-transform: capitalize; margin-bottom: 8px; }
+    .feels-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px; font-size: 14px; color: var(--txt2);
+      font-weight: 500; margin-bottom: 22px;
+    }
+    .dot { width:3px; height:3px; border-radius:50%;
+      background:rgba(168,85,247,0.5); display:inline-block; }
+
+    /* ─── CARDS ──────────────────────── */
+    #cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 11px;
+      padding: 0 13px 24px;
+    }
+    .card {
+      background: var(--glass);
+      border: 1.5px solid var(--border);
+      border-radius: 22px;
+      padding: 16px 15px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      position: relative; overflow: hidden;
+      transition: transform .18s, border-color .18s;
+      opacity: 0;
+      animation: slideUp .45s ease forwards;
+    }
+    .card:active { transform: scale(0.965); border-color: var(--border2); }
+    .card::after {
+      content:''; position: absolute;
+      top:0; left:10%; right:10%; height:1px;
+      background: linear-gradient(90deg, transparent, rgba(168,85,247,0.5), transparent);
+    }
+    .card.wide { grid-column: span 2; }
+
+    @keyframes slideUp {
+      from { opacity:0; transform: translateY(18px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+    .card:nth-child(1)  { animation-delay:.05s }
+    .card:nth-child(2)  { animation-delay:.1s }
+    .card:nth-child(3)  { animation-delay:.15s }
+    .card:nth-child(4)  { animation-delay:.2s }
+    .card:nth-child(5)  { animation-delay:.25s }
+    .card:nth-child(6)  { animation-delay:.3s }
+    .card:nth-child(7)  { animation-delay:.35s }
+    .card:nth-child(8)  { animation-delay:.4s }
+    .card:nth-child(9)  { animation-delay:.45s }
+
+    .clbl {
+      font-size: 10.5px; font-weight: 800; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--txt3);
+      margin-bottom: 10px; display: flex; align-items: center; gap: 5px;
+    }
+    .clbl-ico { font-size: 12px; }
+    .cval {
+      font-size: 30px; font-weight: 700; line-height: 1;
+      letter-spacing: -1px;
+    }
+    .cunit { font-size: 15px; font-weight: 500; color: var(--txt2); letter-spacing: 0; }
+    .csub { font-size: 12px; color: var(--txt2); margin-top: 5px; font-weight: 500; }
+
+    /* ─── SUN CARD ───────────────────── */
+    .sun-row { display: flex; justify-content: space-around; align-items: center; }
+    .sun-item { text-align: center; }
+    .sun-ico { font-size: 34px; margin-bottom: 6px; line-height:1; }
+    .sun-time { font-size: 22px; font-weight: 700; letter-spacing:-0.5px; }
+    .sun-lbl { font-size: 11px; color: var(--txt2); margin-top:3px; font-weight:600; text-transform:uppercase; letter-spacing:.7px; }
+    .sun-sep { width:1px; height:58px; background: var(--border); }
+
+    /* ─── UV BAR ─────────────────────── */
+    .uv-track {
+      height: 7px; border-radius: 4px; margin: 10px 0 5px;
+      background: linear-gradient(90deg, #00d26a 0%, #ffe226 30%, #ff8c00 55%, #ff4040 78%, #9b5de5 100%);
+      position: relative;
+    }
+    .uv-dot {
+      position:absolute; top:50%; width:13px; height:13px;
+      background:#fff; border-radius:50%;
+      transform: translate(-50%,-50%);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      transition: left .5s cubic-bezier(.34,1.56,.64,1);
+    }
+    .uv-labs {
+      display:flex; justify-content: space-between;
+      font-size:9.5px; color:var(--txt3); font-weight:700;
+      text-transform:uppercase; letter-spacing:.4px;
+    }
+
+    /* ─── WIND COMPASS ───────────────── */
+    .wind-row { display:flex; align-items:center; gap:14px; }
+    .compass {
+      width:52px; height:52px; flex-shrink:0;
+      border: 1.5px solid var(--border2);
+      border-radius:50%; display:flex;
+      align-items:center; justify-content:center;
+      background: rgba(147,51,234,0.08);
+      position:relative;
+    }
+    .compass::before {
+      content:'N'; position:absolute; top:4px; left:50%;
+      transform:translateX(-50%);
+      font-size:8px; font-weight:800; color:var(--accent3);
+      letter-spacing:.5px;
+    }
+    .c-arrow {
+      font-size:22px; color:var(--accent3);
+      transition: transform .5s cubic-bezier(.34,1.56,.64,1);
+      line-height:1;
+    }
+
+    /* ─── HUMIDITY BAR ───────────────── */
+    .hum-bar { height:5px; border-radius:3px;
+      background:rgba(255,255,255,0.1); margin:8px 0 4px; overflow:hidden; }
+    .hum-fill {
+      height:100%; border-radius:3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent3));
+      transition: width .6s ease;
+    }
+
+    /* ─── PRESSURE BAR ───────────────── */
+    .prs-bar { height:5px; border-radius:3px;
+      background:rgba(255,255,255,0.1); margin:8px 0 4px; overflow:hidden; }
+    .prs-fill {
+      height:100%; border-radius:3px;
+      background: linear-gradient(90deg, #60a5fa, var(--accent));
+      transition: width .6s ease;
+    }
+    .prs-meta { display:flex; justify-content:space-between;
+      font-size:10px; color:var(--txt3); font-weight:700; }
+
+    /* ─── RECOMMENDATION ─────────────── */
+    .rec-emo { font-size:30px; margin-bottom:8px; }
+    .rec-txt { font-size:14px; line-height:1.7; color:var(--txt2); font-weight:500; }
+
+    /* ─── VISIBILITY VISUAL ──────────── */
+    .vis-eye {
+      font-size:36px; margin-bottom:4px;
+      transition: filter .4s;
+    }
+
+    /* ─── FOOTER ─────────────────────── */
+    #footer {
+      text-align:center; padding: 16px 20px 0;
+      font-size:11px; color:var(--txt3); font-weight:600;
+    }
+
+    .hidden { display:none !important; }
+
+    /* ─── SCROLLBAR ──────────────────── */
+    ::-webkit-scrollbar { width:0; }
+  </style>
+</head>
+<body>
+
+<div id="bg"></div>
+<div id="nebula"></div>
+<div id="stars"></div>
+
+<div id="app">
+
+  <!-- Search -->
+  <div id="searchWrap">
+    <div id="searchRow">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" id="cityInput" placeholder="Поиск города..." autocomplete="off" autocorrect="off" spellcheck="false"/>
+      <button id="searchBtn">Найти</button>
+    </div>
+  </div>
+
+  <!-- API Key -->
+  <div id="apiPanel">
+    <span class="lbl">🔑 API</span>
+    <input type="text" id="apiKeyIn" placeholder="Введите ключ OpenWeatherMap..."/>
+    <button id="saveKeyBtn">Готово</button>
+  </div>
+
+  <!-- Content -->
+  <div id="content">
+    <div id="welcome">
+      <div class="ico">🌙</div>
+      <h2>Прогноз погоды</h2>
+      <p>Введите название города, чтобы увидеть актуальную погоду, ощущение, ветер, УФ-индекс и многое другое.</p>
+    </div>
+    <div id="loading" class="hidden">
+      <div class="spin"></div>
+      <div style="font-size:14px;color:var(--txt2);font-weight:600;">Загружаем погоду…</div>
+    </div>
+    <div id="error" class="hidden">
+      <div class="eico">⚠️</div>
+      <h3>Ошибка</h3>
+      <p id="errorMsg"></p>
+    </div>
+    <div id="weatherMain" class="hidden"></div>
+    <div id="cards" class="hidden"></div>
+    <div id="footer" class="hidden">Данные: OpenWeatherMap</div>
+  </div>
+
+</div>
+
+<script>
+/* ── State ─────────────────────────────── */
+let API_KEY = localStorage.getItem('owm_key') || '';
+let lastCity = localStorage.getItem('last_city') || '';
+
+/* ── Stars ─────────────────────────────── */
+(function(){
+  const c = document.getElementById('stars');
+  for(let i=0;i<90;i++){
+    const s = document.createElement('div');
+    s.className='star';
+    const sz = Math.random()*2+0.4;
+    s.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;
+      width:${sz}px;height:${sz}px;
+      --d:${(Math.random()*4+2).toFixed(1)}s;
+      --dl:-${(Math.random()*5).toFixed(1)}s;
+      --op:${(Math.random()*0.55+0.15).toFixed(2)};`;
+    c.appendChild(s);
+  }
+})();
+
+/* ── API key ───────────────────────────── */
+function initApiPanel(){
+  if(API_KEY) document.getElementById('apiPanel').classList.add('hidden');
+  else document.getElementById('apiPanel').classList.remove('hidden');
+}
+document.getElementById('saveKeyBtn').onclick = () => {
+  const k = document.getElementById('apiKeyIn').value.trim();
+  if(!k){ alert('Введите API ключ'); return; }
+  API_KEY = k;
+  localStorage.setItem('owm_key',k);
+  document.getElementById('apiPanel').classList.add('hidden');
+};
+initApiPanel();
+
+/* ── Search ────────────────────────────── */
+document.getElementById('searchBtn').onclick = doSearch;
+document.getElementById('cityInput').addEventListener('keydown', e => {
+  if(e.key==='Enter') doSearch();
+});
+
+/* ── Helpers ───────────────────────────── */
+function degToDir(d){
+  const dirs=['С','ССВ','СВ','ВСВ','В','ВЮВ','ЮВ','ЮЮВ','Ю','ЮЮЗ','ЮЗ','ЗЮЗ','З','ЗСЗ','СЗ','ССЗ'];
+  return dirs[Math.round(d/22.5)%16];
+}
+function fmtTime(ts, tz){
+  return new Date((ts + tz)*1000).toISOString().slice(11,16);
+}
+function uvInfo(v){
+  if(v<=2)  return {lbl:'Низкий',    pos:0.05, color:'#00d26a'};
+  if(v<=5)  return {lbl:'Умеренный', pos:0.28, color:'#ffe226'};
+  if(v<=7)  return {lbl:'Высокий',   pos:0.52, color:'#ff8c00'};
+  if(v<=10) return {lbl:'О. высокий',pos:0.76, color:'#ff4040'};
+  return           {lbl:'Экстрем.',  pos:0.96, color:'#9b5de5'};
+}
+function humDesc(h){ return h<30?'Сухо':h<60?'Комфортно':h<80?'Влажно':'Очень влажно'; }
+function prsDesc(p){ return p<1000?'Низкое':p<1020?'Норм.':'Высокое'; }
+function visDesc(v){
+  const km = v/1000;
+  if(km>=10) return {lbl:'Отличная', eye:'👁️'};
+  if(km>=5)  return {lbl:'Хорошая',  eye:'👀'};
+  if(km>=2)  return {lbl:'Средняя',  eye:'🌫️'};
+  return             {lbl:'Плохая',   eye:'🌁'};
+}
+function wEmoji(icon, desc){
+  const d=desc.toLowerCase();
+  if(/thunder|гроза/.test(d))  return '⛈️';
+  if(/snow|снег/.test(d))      return '❄️';
+  if(/drizzle|изморо/.test(d)) return '🌦️';
+  if(/rain|дожд/.test(d))      return '🌧️';
+  if(/mist|fog|туман/.test(d)) return '🌫️';
+  if(/clear|ясно/.test(d)){
+    const h=new Date().getHours();
+    return (h>=6&&h<20)?'☀️':'🌙';
+  }
+  if(/few|scattered|малоблач/.test(d)) return '🌤️';
+  if(/cloud|облач/.test(d))    return '☁️';
+  return '🌡️';
+}
+function tempRec(temp, feelsLike, hum, wind, desc){
+  const d=desc.toLowerCase();
+  let emoji,txt;
+  if(temp<-20)     { emoji='🥶'; txt='Экстремальный мороз! Выходите на улицу только в случае крайней необходимости. Многослойная одежда, термобельё, защита лица и рук.'; }
+  else if(temp<-10){ emoji='❄️'; txt='Очень холодно. Зимняя куртка, тёплая шапка, шарф и перчатки обязательны. Следите за признаками обморожения.'; }
+  else if(temp<0)  { emoji='🧥'; txt='Морозно. Тёплая куртка, шапка, перчатки. На дорогах может быть лёд — будьте осторожны.'; }
+  else if(temp<10) { emoji='🧣'; txt='Прохладно. Куртка и плотная кофта — то, что нужно. Можно взять шарф на всякий случай.'; }
+  else if(temp<18) { emoji='🌤'; txt='Мягкая погода. Лёгкая куртка или толстовка будут уместны. Отличное время для прогулок.'; }
+  else if(temp<24) { emoji='😊'; txt='Идеальная погода! Футболка или лёгкая рубашка. Комфортно для любой активности на улице.'; }
+  else if(temp<30) { emoji='☀️'; txt='Тепло и солнечно. Лёгкая одежда, пейте больше воды, не забудьте солнцезащитный крем SPF 30+.'; }
+  else if(temp<35) { emoji='🌡️'; txt='Жарко! Избегайте солнца в пик жары (12–16 ч). Светлая одежда, достаточно воды, SPF 50+.'; }
+  else             { emoji='🔥'; txt='Опасная жара! Минимизируйте пребывание на улице. Пейте воду каждые 15–20 минут. Холодный душ помогает.'; }
+
+  const tips=[];
+  if(/rain|дожд/.test(d)||/drizzle/.test(d)) tips.push('☂️ Возьмите зонт.');
+  if(/snow|снег/.test(d)) tips.push('🌨️ Ожидается снег.');
+  if(/thunder|гроза/.test(d)) tips.push('⛈️ Гроза — не гулять.');
+  if(wind>10) tips.push(`💨 Сильный ветер ${Math.round(wind)} м/с.`);
+  if(hum>80) tips.push('💧 Высокая влажность — будет душно.');
+  if(feelsLike < temp-3) tips.push(`🌬️ Ощущается холоднее: ${feelsLike}°.`);
+
+  if(tips.length) txt += ' ' + tips.join(' ');
+  return {emoji, txt};
+}
+
+/* ── Show / Hide ───────────────────────── */
+function showOnly(ids, allIds){
+  allIds.forEach(id => document.getElementById(id).classList.add('hidden'));
+  ids.forEach(id => document.getElementById(id).classList.remove('hidden'));
+}
+const ALL = ['welcome','loading','error','weatherMain','cards','footer'];
+
+/* ── Main search ───────────────────────── */
+async function doSearch(){
+  const city = document.getElementById('cityInput').value.trim();
+  if(!city) return;
+  if(!API_KEY){
+    document.getElementById('apiPanel').classList.remove('hidden');
+    document.getElementById('apiKeyIn').focus();
+    return;
+  }
+  showOnly(['loading'], ALL);
+
+  try {
+    const res = await fetch(
+      `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric&lang=ru`
+    );
+    if(res.status===401) throw new Error('Неверный API ключ. Проверьте и обновите его.');
+    if(res.status===404) throw new Error(`Город «${city}» не найден. Попробуйте другое название.`);
+    if(!res.ok) throw new Error(`Ошибка сервера: ${res.status}`);
+    const d = await res.json();
+
+    /* UV index */
+    let uvi = 0;
+    try {
+      const uvr = await fetch(`https://api.openweathermap.org/data/2.5/uvi?lat=${d.coord.lat}&lon=${d.coord.lon}&appid=${API_KEY}`);
+      if(uvr.ok){ const uv=await uvr.json(); uvi=uv.value||0; }
+    } catch(e){}
+
+    localStorage.setItem('last_city', city);
+    render(d, uvi);
+  } catch(err) {
+    document.getElementById('errorMsg').textContent = err.message || 'Не удалось загрузить данные.';
+    showOnly(['error'], ALL);
+  }
+}
+
+/* ── Render ────────────────────────────── */
+function render(d, uvi){
+  const temp      = Math.round(d.main.temp);
+  const feels     = Math.round(d.main.feels_like);
+  const hum       = d.main.humidity;
+  const prs       = d.main.pressure;
+  const windSpd   = d.wind.speed;
+  const windDeg   = d.wind.deg ?? 0;
+  const vis       = d.visibility ?? null;
+  const desc      = d.weather[0].description;
+  const icon      = d.weather[0].icon;
+  const name      = d.name;
+  const cc        = d.sys.country;
+  const tz        = d.timezone;
+  const sunrise   = fmtTime(d.sys.sunrise, tz);
+  const sunset    = fmtTime(d.sys.sunset,  tz);
+  const emoji     = wEmoji(icon, desc);
+  const {lbl:uvLbl, pos:uvPos} = uvInfo(uvi);
+  const {lbl:visLbl, eye:visEye} = visDesc(vis??10000);
+  const {emoji:recE, txt:recT} = tempRec(temp, feels, hum, windSpd, desc);
+  const prsPercent = Math.min(100, Math.max(0, ((prs-950)/110)*100));
+
+  /* Main header */
+  document.getElementById('weatherMain').innerHTML = `
+    <div class="city-nm">${name}</div>
+    <div class="city-cc">${cc}</div>
+    <div class="wico">${emoji}</div>
+    <div class="big-temp">${temp}°</div>
+    <div class="w-desc">${desc}</div>
+    <div class="feels-row">
+      <span>Ощущается ${feels}°</span>
+      <span class="dot"></span>
+      <span>${hum}% влажность</span>
+    </div>
+  `;
+
+  /* Cards */
+  document.getElementById('cards').innerHTML = `
+
+    <!-- Sunrise / Sunset -->
+    <div class="card wide">
+      <div class="clbl"><span class="clbl-ico">🌅</span>Восход и закат</div>
+      <div class="sun-row">
+        <div class="sun-item">
+          <div class="sun-ico">🌄</div>
+          <div class="sun-time">${sunrise}</div>
+          <div class="sun-lbl">Восход</div>
+        </div>
+        <div class="sun-sep"></div>
+        <div class="sun-item">
+          <div class="sun-ico">🌇</div>
+          <div class="sun-time">${sunset}</div>
+          <div class="sun-lbl">Закат</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wind -->
+    <div class="card">
+      <div class="clbl"><span class="clbl-ico">💨</span>Ветер</div>
+      <div class="wind-row">
+        <div class="compass">
+          <div class="c-arrow" id="carrow">↑</div>
+        </div>
+        <div>
+          <div class="cval">${windSpd}<span class="cunit"> м/с</span></div>
+          <div class="csub">${degToDir(windDeg)}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feels like -->
+    <div class="card">
+      <div class="clbl"><span class="clbl-ico">🌡️</span>Ощущается</div>
+      <div class="cval">${feels}°<span class="cunit">C</span></div>
+      <div class="csub">${feels<temp-2?'Холоднее факт.':feels>temp+2?'Теплее факт.':'Как фактически'}</div>
+    </div>
+
+    <!-- UV -->
+    <div class="card wide">
+      <div class="clbl"><span class="clbl-ico">☀️</span>УФ-индекс</div>
+      <div style="display:flex;align-items:baseline;gap:8px;">
+        <div class="cval">${uvi?uvi.toFixed(1):'—'}</div>
+        <div style="font-size:14px;font-weight:700;color:var(--txt2);">${uvLbl}</div>
+      </div>
+      <div class="uv-track"><div class="uv-dot" id="uvdot" style="left:${uvPos*100}%"></div></div>
+      <div class="uv-labs">
+        <span>Низкий</span><span>Умер.</span><span>Высокий</span><span>О.высок.</span><span>Эктрем.</span>
+      </div>
+    </div>
+
+    <!-- Humidity -->
+    <div class="card">
+      <div class="clbl"><span class="clbl-ico">💧</span>Влажность</div>
+      <div class="cval">${hum}<span class="cunit">%</span></div>
+      <div class="hum-bar"><div class="hum-fill" style="width:${hum}%"></div></div>
+      <div class="csub">${humDesc(hum)}</div>
+    </div>
+
+    <!-- Visibility -->
+    <div class="card">
+      <div class="clbl"><span class="clbl-ico">👁️</span>Видимость</div>
+      <div class="vis-eye">${visEye}</div>
+      <div class="cval" style="font-size:24px;">${vis!=null?(vis/1000).toFixed(1):'>10'}<span class="cunit"> км</span></div>
+      <div class="csub">${visLbl}</div>
+    </div>
+
+    <!-- Pressure -->
+    <div class="card wide">
+      <div class="clbl"><span class="clbl-ico">🔵</span>Давление</div>
+      <div style="display:flex;align-items:baseline;gap:8px;">
+        <div class="cval">${prs}</div>
+        <div class="cunit" style="font-size:14px;font-weight:700;">гПа</div>
+        <div style="margin-left:4px;font-size:13px;color:var(--txt2);font-weight:600;">${prsDesc(prs)}</div>
+      </div>
+      <div class="prs-bar"><div class="prs-fill" style="width:${prsPercent}%"></div></div>
+      <div class="prs-meta"><span>950</span><span>1013 норма</span><span>1060</span></div>
+    </div>
+
+    <!-- Recommendation -->
+    <div class="card wide">
+      <div class="clbl"><span class="clbl-ico">💡</span>Что надеть / советы</div>
+      <div class="rec-emo">${recE}</div>
+      <div class="rec-txt">${recT}</div>
+    </div>
+
+  `;
+
+  /* Animate compass arrow */
+  setTimeout(()=>{
+    const arr = document.getElementById('carrow');
+    if(arr) arr.style.transform=`rotate(${windDeg}deg)`;
+  }, 50);
+
+  showOnly(['weatherMain','cards','footer'], ALL);
+}
+
+/* ── Load last city ─────────────────────── */
+if(API_KEY && lastCity){
+  document.getElementById('cityInput').value = lastCity;
+  doSearch();
+}
+</script>
+</body>
+</html>
